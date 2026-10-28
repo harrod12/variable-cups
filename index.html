@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variable cups: practice tracing assignment</title>
+<meta name="description" content="Step through assignment statements with cups and sticky notes, then practice trace tables. Free, no sign in, no data collected.">
+<style>
+:root{
+  --desk:#e8edef;
+  --panel:#ffffff;
+  --ink:#12262e;
+  --muted:#4a5f68;
+  --line:#c3d0d5;
+  --accent:#0d5c6b;
+  --accent-ink:#ffffff;
+  --note:#f4d35e;
+  --good:#1d6b3a;
+  --good-bg:#e1f2e6;
+  --bad:#a1361c;
+  --bad-bg:#fbe7e1;
+  --focus:#b45309;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{font-size:100%}
+body{margin:0;background:var(--desk);color:var(--ink);font:1rem/1.5 var(--sans)}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+code,.mono{font-family:var(--mono)}
+header.top{max-width:1180px;margin:0 auto;padding:28px 20px 8px}
+header.top h1{margin:0;font-size:2rem;line-height:1.15;letter-spacing:-.01em}
+header.top p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.tabs{display:flex;gap:6px;margin-top:20px;border-bottom:2px solid var(--line)}
+.tab{background:transparent;border:0;padding:10px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-weight:600;color:var(--muted);margin-bottom:-2px;border-bottom:4px solid transparent}
+.tab[aria-selected="true"]{color:var(--ink);background:var(--panel);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+main{max-width:1180px;margin:0 auto;padding:20px 20px 60px}
+[hidden]{display:none!important}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h2{margin:0 0 10px;font-size:1.15rem}
+.card h3{margin:0 0 8px;font-size:1rem}
+label{display:block;font-weight:600;margin:0 0 4px}
+select,input[type=text],textarea{width:100%;background:#fff;border:1.5px solid #8ba0a8;border-radius:8px;padding:8px 10px}
+textarea{font-family:var(--mono);font-size:1.05rem;line-height:1.6;resize:vertical}
+.hint{color:var(--muted);font-size:.9rem;margin:6px 0 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{background:var(--accent);color:var(--accent-ink);border:2px solid var(--accent);border-radius:999px;padding:8px 18px;font-weight:700;cursor:pointer}
+.btn:hover{background:#0a4651;border-color:#0a4651}
+.btn.alt{background:#fff;color:var(--accent)}
+.btn.alt:hover{background:#e9f3f5}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.err{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bad-bg);color:var(--bad);font-weight:600}
+
+/* Explore */
+.explore{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:18px;align-items:start}
+.stack{display:grid;gap:18px}
+ol.program{list-style:none;margin:14px 0 0;padding:0;counter-reset:ln;font-family:var(--mono)}
+ol.program li{counter-increment:ln;display:flex;gap:10px;padding:5px 8px;border-radius:6px;color:var(--muted)}
+ol.program li::before{content:counter(ln);min-width:1.6em;text-align:right;color:#7b8f97}
+ol.program li.done{color:var(--ink)}
+ol.program li.last{background:#fff3c4;color:var(--ink);font-weight:700}
+ol.program li.next{outline:2px dashed #8ba0a8;outline-offset:-2px;color:var(--ink)}
+.stage{display:flex;flex-wrap:wrap;gap:22px 26px;align-items:flex-end;min-height:190px;padding:10px 4px 4px}
+.empty-msg{color:var(--muted);align-self:center}
+.cup{width:112px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.cup-art{position:relative;width:112px;height:120px}
+.cup-art svg{display:block}
+.note{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-3deg);background:var(--note);color:var(--ink);padding:8px 10px;min-width:52px;max-width:92px;text-align:center;font:700 1.25rem/1.1 var(--mono);box-shadow:0 2px 0 rgba(18,38,46,.35);word-break:break-word}
+.note.new{animation:drop .55s cubic-bezier(.2,.8,.3,1)}
+@keyframes drop{from{transform:translate(-50%,-230%) rotate(-3deg);opacity:0}to{transform:translate(-50%,-50%) rotate(-3deg);opacity:1}}
+.cup-label{font:700 1.1rem var(--mono);text-align:center}
+.cup-tag{display:block;font:600 .8rem var(--sans);color:var(--muted);min-height:1.2em}
+.cup.target .cup-tag{color:var(--accent)}
+.cup.source .cup-art{animation:pulse .9s ease-out}
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+.bin{margin-top:16px;padding:12px;border:2px dashed #8ba0a8;border-radius:10px}
+.bin h3{margin:0 0 8px;font-size:.95rem;color:var(--muted)}
+.bin-notes{display:flex;flex-wrap:wrap;gap:8px;min-height:36px}
+.bin .dnote{background:#ece7cf;color:#5d5a4a;padding:4px 9px;font:700 .95rem var(--mono);text-decoration:line-through;transform:rotate(2deg)}
+.bin .none{color:var(--muted);font-size:.9rem;align-self:center}
+.narration{margin-top:14px;padding:12px 14px;border-radius:10px;background:#eaf3f5;min-height:3.4em}
+.narration.problem{background:var(--bad-bg);color:var(--bad);font-weight:600}
+.tablewrap{overflow-x:auto}
+table.trace{border-collapse:collapse;width:100%;margin-top:6px}
+table.trace caption{text-align:left;font-weight:700;padding-bottom:6px}
+table.trace th,table.trace td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+table.trace th{background:#f1f6f7}
+table.trace td.val{font-family:var(--mono);font-weight:700}
+table.trace td.chg{background:#fff3c4}
+table.trace td.empty{color:#8ba0a8}
+
+/* Practice */
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end}
+.practice-grid{display:grid;grid-template-columns:1fr minmax(260px,340px);gap:18px;align-items:start}
+input.cell{width:6.5em;font-family:var(--mono);font-weight:700;padding:6px 8px;border:1.5px solid #8ba0a8;border-radius:6px;background:#fff}
+input.cell.good{border-color:var(--good);background:var(--good-bg)}
+input.cell.bad{border-color:var(--bad);background:var(--bad-bg)}
+.rowstat{font-size:.85rem;font-weight:700}
+.fb{margin-top:14px;padding:12px 14px;border-radius:10px;background:#eaf3f5}
+.fb.ok{background:var(--good-bg);color:var(--good)}
+.fb.no{background:var(--bad-bg)}
+.fb p{margin:0 0 8px}
+.fb p:last-child{margin-bottom:0}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;background:#fff;border:1.5px solid currentColor;font-weight:700;font-size:.85rem}
+ul.tally{margin:8px 0 0;padding-left:20px}
+.code-line{display:flex;gap:8px;align-items:center}
+.code-line input{font-family:var(--mono)}
+
+/* About */
+.about{max-width:760px}
+.about h2{margin-top:22px}
+.about h2:first-child{margin-top:0}
+.about li{margin:4px 0}
+
+@media (max-width:860px){
+  .explore,.practice-grid{grid-template-columns:1fr}
+  header.top h1{font-size:1.6rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .note.new,.cup.source .cup-art{animation:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Variable cups</h1>
+  <p>Watch assignment statements run with cups and sticky notes, then practice filling in trace tables.</p>
+  <div class="tabs" role="tablist" aria-label="Modes">
+    <button class="tab" role="tab" id="tab-explore" aria-controls="panel-explore" aria-selected="true">Explore</button>
+    <button class="tab" role="tab" id="tab-practice" aria-controls="panel-practice" aria-selected="false" tabindex="-1">Practice</button>
+    <button class="tab" role="tab" id="tab-about" aria-controls="panel-about" aria-selected="false" tabindex="-1">About</button>
+  </div>
+</header>
+
+<main>
+  <!-- EXPLORE -->
+  <section id="panel-explore" role="tabpanel" aria-labelledby="tab-explore">
+    <div class="explore">
+      <div class="card">
+        <h2>Program</h2>
+        <label for="preset">Choose an example</label>
+        <select id="preset"></select>
+        <label for="code" style="margin-top:12px">Statements, one per line</label>
+        <textarea id="code" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        <p class="hint">Use ← or &lt;- for assignment. You can add, subtract, multiply, divide, and use MOD. Put text in quotes.</p>
+        <div class="err" id="err" role="alert" hidden></div>
+        <div class="row">
+          <button class="btn alt" id="back" type="button">Back</button>
+          <button class="btn" id="step" type="button">Step</button>
+          <button class="btn alt" id="all" type="button">Run all</button>
+          <button class="btn alt" id="reset" type="button">Reset</button>
+        </div>
+        <ol class="program" id="lines" aria-label="Program lines"></ol>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <h2>Cups and notes</h2>
+          <div class="stage" id="stage" role="group" aria-label="Cups showing the current value of each variable"></div>
+          <div class="bin"><h3>Thrown away</h3><div class="bin-notes" id="bin"></div></div>
+          <div class="narration" id="narration" aria-live="polite"></div>
+        </div>
+        <div class="card">
+          <div class="tablewrap" id="trace"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRACTICE -->
+  <section id="panel-practice" role="tabpanel" aria-labelledby="tab-practice" hidden>
+    <div class="card">
+      <div class="controls">
+        <div>
+          <label for="focus">Focus</label>
+          <select id="focus">
+            <option value="mixed">Mixed</option>
+            <option value="copy">Copy, then change</option>
+            <option value="trap">The two line trap</option>
+            <option value="swap">Swaps</option>
+            <option value="math">Updating with math</option>
+            <option value="text">Text values</option>
+          </select>
+        </div>
+        <div>
+          <label for="diff">Level</label>
+          <select id="diff">
+            <option value="1">Warm up</option>
+            <option value="2" selected>Standard</option>
+            <option value="3">Challenge</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn" id="newp" type="button">New problem</button>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label for="pcode">Problem code</label>
+        <div class="code-line">
+          <input type="text" id="pcode" aria-describedby="pcode-hint" spellcheck="false" autocomplete="off">
+          <button class="btn alt" id="loadp" type="button">Load</button>
+          <button class="btn alt" id="copyp" type="button">Copy</button>
+        </div>
+        <p class="hint" id="pcode-hint">Share this code so a class works the same problem. It also reloads the same problem later.</p>
+      </div>
+    </div>
+
+    <div class="practice-grid" style="margin-top:18px">
+      <div class="card">
+        <h2>Fill in the trace table</h2>
+        <p class="hint" style="margin-top:0">Write what each variable holds after each line. Leave a cell blank if that variable has no value yet.</p>
+        <div class="tablewrap"><table class="trace" id="ptable"></table></div>
+        <div class="row">
+          <button class="btn" id="check" type="button">Check</button>
+          <button class="btn alt" id="reveal" type="button">Show answers</button>
+          <button class="btn alt" id="clear" type="button">Clear</button>
+        </div>
+        <div class="fb" id="fb" aria-live="polite" hidden></div>
+      </div>
+      <div class="stack">
+        <div class="card">
+          <h3>Program</h3>
+          <ol class="program" id="plines" aria-label="Practice program"></ol>
+          <div class="row"><button class="btn alt" id="watch" type="button">Watch it in the cups</button></div>
+        </div>
+        <div class="card">
+          <h3>This session</h3>
+          <p id="score" style="margin:0">No problems checked yet.</p>
+          <ul class="tally" id="tally"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="panel-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+    <div class="card about">
+      <h2>What this teaches</h2>
+      <p>In AP Computer Science Principles pseudocode, <code>a ← b</code> copies the value in b into a. It does not link the two variables, and it does not swap anything. Each variable holds one value at a time, and that value is the most recent one assigned.</p>
+      <p>The tool treats each variable as a cup and each value as a sticky note. When a statement runs, the old note in the cup on the left is thrown away and a copy of the new value goes in.</p>
+      <h2>For teachers</h2>
+      <ul>
+        <li>Have students predict final values on paper first, then use Explore to check.</li>
+        <li>Load "Predict first" and ask for a vote before pressing Step.</li>
+        <li>In Practice, share a problem code so the whole class traces the same program.</li>
+        <li>Use the patterns list to see which error types came up most in a session.</li>
+        <li>Pair it with real cups and sticky notes. The physical version builds the model, and this tool lets students keep practicing.</li>
+      </ul>
+      <h2>Standards alignment</h2>
+      <p>Aligned to AP Computer Science Principles Big Idea 3, learning objective AAP-1.B (determine the value of a variable as a result of an assignment), and essential knowledge AAP-1.B.3 (the value stored in a variable is the most recent value assigned). Confirm the numbering against the current Course and Exam Description.</p>
+      <h2>Privacy</h2>
+      <p>Everything runs in your browser. Nothing is sent anywhere, saved, or tracked, and no account is needed.</p>
+      <h2>Notes</h2>
+      <p>This is an independent teaching tool. It is not affiliated with or endorsed by College Board or Code.org. AP is a registered trademark of College Board.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- helpers ---------- */
+const $=(s,el=document)=>el.querySelector(s);
+const $$=(s,el=document)=>Array.from(el.querySelectorAll(s));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const round=n=>Math.round(n*1e6)/1e6;
+const fmt=v=>v===undefined?"":(typeof v==="number"?String(round(v)):'"'+v+'"');
+const plain=v=>v===undefined?"":(typeof v==="number"?String(round(v)):String(v));
+
+/* ---------- expression parser ---------- */
+function tokenize(src){
+  const t=[];let i=0;
+  while(i<src.length){
+    const c=src[i];
+    if(/\s/.test(c)){i++;continue;}
+    if(/[0-9]/.test(c)){let j=i;while(j<src.length&&/[0-9.]/.test(src[j]))j++;t.push({k:"num",v:parseFloat(src.slice(i,j))});i=j;continue;}
+    if(c==='"'){const j=src.indexOf('"',i+1);if(j<0)throw new Error("Text needs a closing quote.");t.push({k:"str",v:src.slice(i+1,j)});i=j+1;continue;}
+    if(/[A-Za-z_]/.test(c)){let j=i;while(j<src.length&&/[A-Za-z0-9_]/.test(src[j]))j++;const w=src.slice(i,j);t.push(w==="MOD"?{k:"op",v:"MOD"}:{k:"id",v:w});i=j;continue;}
+    if("+-*/()".indexOf(c)>=0){t.push({k:"op",v:c});i++;continue;}
+    throw new Error('I do not understand "'+c+'".');
+  }
+  return t;
+}
+function parseExpr(tokens){
+  let p=0;
+  const peek=()=>tokens[p];
+  function primary(){
+    const t=tokens[p++];
+    if(!t)throw new Error("The right side is incomplete.");
+    if(t.k==="num")return{t:"num",v:t.v};
+    if(t.k==="str")return{t:"str",v:t.v};
+    if(t.k==="id")return{t:"var",n:t.v};
+    if(t.k==="op"&&t.v==="("){const e=add();const c=tokens[p++];if(!c||c.v!==")")throw new Error("A closing parenthesis is missing.");return e;}
+    if(t.k==="op"&&t.v==="-")return{t:"neg",e:primary()};
+    throw new Error("Unexpected "+t.v+" on the right side.");
+  }
+  function mul(){let l=primary();while(peek()&&peek().k==="op"&&["*","/","MOD"].indexOf(peek().v)>=0){const o=tokens[p++].v;l={t:"bin",o:o,l:l,r:primary()};}return l;}
+  function add(){let l=mul();while(peek()&&peek().k==="op"&&["+","-"].indexOf(peek().v)>=0){const o=tokens[p++].v;l={t:"bin",o:o,l:l,r:mul()};}return l;}
+  const e=add();
+  if(p<tokens.length)throw new Error("There is extra text after the expression.");
+  return e;
+}
+function evalNode(n,vars,reads){
+  switch(n.t){
+    case"num":case"str":return n.v;
+    case"var":
+      if(!vars.has(n.n))throw new Error("Cup "+n.n+" is empty. Give it a value before you use it.");
+      reads.push(n.n);return vars.get(n.n);
+    case"neg":{const v=evalNode(n.e,vars,reads);if(typeof v!=="number")throw new Error("Only numbers can be negative.");return -v;}
+    case"bin":{
+      const l=evalNode(n.l,vars,reads),r=evalNode(n.r,vars,reads);
+      if(n.o==="+"&&(typeof l==="string"||typeof r==="string"))return String(l)+String(r);
+      if(typeof l!=="number"||typeof r!=="number")throw new Error("Only numbers can use "+n.o+".");
+      if(n.o==="+")return l+r;
+      if(n.o==="-")return l-r;
+      if(n.o==="*")return l*r;
+      if(r===0)throw new Error("You cannot divide by zero.");
+      if(n.o==="/")return l/r;
+      return l-r*Math.floor(l/r);
+    }
+  }
+  throw new Error("Could not evaluate that.");
+}
+
+/* ---------- program parsing and running ---------- */
+const LINE=/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:←|<-|=)\s*(.*?)\s*$/;
+function parseProgram(text){
+  const stmts=[];
+  const lines=text.split(/\r?\n/);
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i];
+    if(!raw.trim()||/^\s*(\/\/|#)/.test(raw))continue;
+    const m=raw.match(LINE);
+    if(!m)return{error:"Line "+(i+1)+" should look like  a ← 5  or  b ← a. Type ← or <- for the arrow."};
+    if(!m[2])return{error:"Line "+(i+1)+" needs something on the right of the arrow."};
+    let ast;
+    try{ast=parseExpr(tokenize(m[2]));}catch(e){return{error:"Line "+(i+1)+": "+e.message};}
+    stmts.push({text:m[1]+" ← "+m[2],target:m[1],rhsText:m[2],ast:ast});
+  }
+  if(!stmts.length)return{error:"Type at least one statement to begin."};
+  if(stmts.length>14)return{error:"Use 14 statements or fewer so every step stays visible."};
+  const names=Array.from(new Set(stmts.map(s=>s.target)));
+  if(names.length>6)return{error:"Use 6 variables or fewer."};
+  return{stmts:stmts,names:names};
+}
+function execute(stmts){
+  const vars=new Map();const steps=[];let error=null;
+  for(let i=0;i<stmts.length;i++){
+    const s=stmts[i];const reads=[];
+    try{
+      const value=evalNode(s.ast,vars,reads);
+      const hadOld=vars.has(s.target);const old=vars.get(s.target);
+      const uniq=[];
+      reads.forEach(n=>{if(!uniq.some(u=>u.n===n))uniq.push({n:n,v:vars.get(n)});});
+      const after=new Map(vars);after.set(s.target,value);
+      steps.push({i:i,stmt:s,value:value,old:old,hadOld:hadOld,reads:uniq,after:after});
+      vars.set(s.target,value);
+    }catch(e){error={at:i,message:"Line "+(i+1)+": "+e.message};break;}
+  }
+  return{steps:steps,error:error};
+}
+function narrate(step){
+  const s=step.stmt,T=s.target,rhs=s.ast,parts=[];
+  if(rhs.t==="var"){
+    parts.push("Read the right side: "+rhs.n+" holds "+fmt(step.value)+".");
+    parts.push("Make a copy of that note. The original stays in "+rhs.n+".");
+  }else if(rhs.t==="num"||rhs.t==="str"){
+    parts.push("Write "+fmt(step.value)+" on a new note.");
+  }else{
+    const r=step.reads.map(x=>x.n+" holds "+fmt(x.v)).join(", ");
+    parts.push("Work out the right side"+(r?" using the current values ("+r+")":"")+": "+s.rhsText+" is "+fmt(step.value)+".");
+    parts.push("Write "+fmt(step.value)+" on a new note.");
+  }
+  if(step.hadOld)parts.push("Take the old note, "+fmt(step.old)+", out of "+T+" and throw it away.");
+  else parts.push("Cup "+T+" is new, so it starts empty.");
+  parts.push("Put the new note in "+T+". Now "+T+" holds "+fmt(step.value)+". Every other cup stays as it was.");
+  return parts.join(" ");
+}
+function finalSummary(step){
+  const bits=[];
+  step.after.forEach((v,k)=>bits.push(k+" is "+fmt(v)));
+  return "Done. Final values: "+bits.join(", ")+".";
+}
+
+/* ---------- Explore ---------- */
+const CUPS=["#9fd3c7","#f2b5a0","#b9b8e6","#e5d489","#a8c8e8","#d9b3d2"];
+const PRESETS=[
+  {n:"Predict first: a ← b, then b ← a",c:"a ← 3\nb ← 7\na ← b\nb ← a"},
+  {n:"Swap with a temporary cup",c:"a ← 3\nb ← 7\ntemp ← a\na ← b\nb ← temp"},
+  {n:"Temporary cup used too late",c:"a ← 3\nb ← 7\na ← b\ntemp ← a\nb ← temp"},
+  {n:"Copy, then change the original",c:"a ← 1\nb ← a\na ← 2"},
+  {n:"Update a variable with itself",c:"score ← 10\nscore ← score + 5\nbonus ← score * 2"},
+  {n:"Text values",c:"first ← \"Ana\"\nsecond ← \"Ben\"\nfirst ← second\nsecond ← first"},
+  {n:"Rotate three values",c:"a ← 1\nb ← 2\nc ← 3\ntemp ← a\na ← b\nb ← c\nc ← temp"}
+];
+const ex={stmts:null,names:[],run:null,idx:0,anim:false,hitError:false};
+function isTemp(n){return /^(temp|tmp|hold|holder|spare)$/i.test(n);}
+function loadExplore(){
+  const res=parseProgram($("#code").value);
+  const err=$("#err");
+  if(res.error){err.textContent=res.error;err.hidden=false;ex.stmts=null;}
+  else{err.hidden=true;ex.stmts=res.stmts;ex.names=res.names;ex.run=execute(res.stmts);}
+  ex.idx=0;ex.anim=false;ex.hitError=false;
+  renderExplore();
+}
+function cupSVG(color,dashed){
+  return '<svg viewBox="0 0 112 120" width="112" height="120" aria-hidden="true" focusable="false"><path d="M3 3 H109 L95 117 H17 Z" fill="'+color+'" stroke="#12262e" stroke-width="3" stroke-linejoin="round"'+(dashed?' stroke-dasharray="7 5"':'')+'/></svg>';
+}
+function renderExplore(){
+  const lines=$("#lines"),stage=$("#stage"),bin=$("#bin"),nar=$("#narration"),trace=$("#trace");
+  $("#back").disabled=!ex.stmts||ex.idx===0;
+  if(!ex.stmts){
+    lines.innerHTML="";
+    stage.innerHTML='<p class="empty-msg">Fix the program to see the cups.</p>';
+    bin.innerHTML="";nar.textContent="";nar.className="narration";trace.innerHTML="";
+    $("#step").disabled=true;$("#all").disabled=true;
+    return;
+  }
+  const total=ex.stmts.length,done=ex.run.steps.length;
+  $("#step").disabled=ex.idx>=total;
+  $("#all").disabled=ex.idx>=total;
+  lines.innerHTML=ex.stmts.map((s,i)=>{
+    let cls="";
+    if(i<ex.idx)cls="done";
+    if(i===ex.idx-1)cls="done last";
+    else if(i===ex.idx)cls="next";
+    return '<li class="'+cls+'"'+(i===ex.idx-1?' aria-current="step"':'')+'>'+esc(s.text)+'</li>';
+  }).join("");
+  const step=ex.idx>0?ex.run.steps[ex.idx-1]:null;
+  const now=step?step.after:new Map();
+  const target=step?step.stmt.target:null;
+  const srcs=step?step.reads.map(r=>r.n):[];
+  if(ex.idx===0){
+    stage.innerHTML='<p class="empty-msg">No cups yet. Press Step to run the first statement.</p>';
+  }else{
+    stage.innerHTML=ex.names.filter(n=>now.has(n)).map(n=>{
+      const ci=ex.names.indexOf(n);
+      const isT=ex.anim&&n===target,isS=ex.anim&&srcs.indexOf(n)>=0&&n!==target;
+      const tag=isT?"new note":(isS?"copied from":"");
+      return '<div class="cup'+(isT?" target":"")+(isS?" source":"")+'"><div class="cup-art">'+cupSVG(CUPS[ci%CUPS.length],isTemp(n))+'<div class="note'+(isT?" new":"")+'">'+esc(fmt(now.get(n)))+'</div></div><div class="cup-label">'+esc(n)+'</div><span class="cup-tag">'+tag+'</span></div>';
+    }).join("");
+  }
+  const thrown=[];
+  for(let k=0;k<ex.idx;k++){if(ex.run.steps[k].hadOld)thrown.push(ex.run.steps[k].old);}
+  bin.innerHTML=thrown.length?thrown.map(v=>'<span class="dnote">'+esc(fmt(v))+'</span>').join(""):'<span class="none">Nothing yet.</span>';
+  nar.className="narration";
+  if(ex.idx===0){
+    nar.textContent="Next: "+ex.stmts[0].text+". Predict what will happen, then press Step.";
+  }else if(ex.idx===total&&ex.idx<=done){
+    nar.textContent=narrate(step)+" "+finalSummary(step);
+  }else if(ex.idx<=done){
+    nar.textContent=narrate(step)+" Next: "+ex.stmts[ex.idx].text+".";
+  }
+  if(ex.hitError&&ex.run.error&&ex.idx===done&&done<total){
+    nar.className="narration problem";
+    nar.textContent=(step?narrate(step)+" ":"")+"Stop. "+ex.run.error.message;
+  }
+  trace.innerHTML=traceTable(ex.names,ex.run.steps,ex.idx);
+}
+function traceTable(names,steps,upto){
+  let h='<table class="trace"><caption>Trace table</caption><thead><tr><th scope="col">Line</th><th scope="col">Statement</th>'+names.map(n=>'<th scope="col">'+esc(n)+'</th>').join("")+'</tr></thead><tbody>';
+  if(upto===0)h+='<tr><td colspan="'+(names.length+2)+'" class="empty">Rows appear as you step.</td></tr>';
+  for(let r=0;r<upto&&r<steps.length;r++){
+    const s=steps[r];
+    h+='<tr><td>'+(r+1)+'</td><td class="mono">'+esc(s.stmt.text)+'</td>'+names.map(n=>{
+      const v=s.after.get(n);
+      if(v===undefined)return'<td class="empty">empty</td>';
+      return'<td class="val'+(n===s.stmt.target?" chg":"")+'">'+esc(fmt(v))+'</td>';
+    }).join("")+'</tr>';
+  }
+  return h+'</tbody></table>';
+}
+function fillPresets(){
+  const sel=$("#preset");
+  sel.innerHTML=PRESETS.map((p,i)=>'<option value="'+i+'">'+esc(p.n)+'</option>').join("")+'<option value="custom">Custom</option>';
+}
+$("#preset").addEventListener("change",e=>{
+  if(e.target.value==="custom")return;
+  $("#code").value=PRESETS[+e.target.value].c;
+  loadExplore();
+});
+$("#code").addEventListener("input",()=>{
+  $("#preset").value="custom";
+  loadExplore();
+});
+$("#step").addEventListener("click",()=>{
+  if(!ex.stmts)return;
+  if(ex.idx<ex.stmts.length){
+    if(ex.idx<ex.run.steps.length){ex.idx++;ex.anim=true;}
+    else{ex.anim=false;if(ex.run.error)ex.hitError=true;}
+  }
+  renderExplore();
+});
+$("#all").addEventListener("click",()=>{
+  if(!ex.stmts)return;
+  ex.idx=ex.run.steps.length;ex.anim=false;ex.hitError=!!ex.run.error;
+  renderExplore();
+});
+$("#back").addEventListener("click",()=>{if(ex.idx>0){ex.idx--;ex.anim=false;ex.hitError=false;renderExplore();}});
+$("#reset").addEventListener("click",()=>{ex.idx=0;ex.anim=false;ex.hitError=false;renderExplore();});
+
+/* ---------- seeded random ---------- */
+function xmur3(str){
+  let h=1779033703^str.length;
+  for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}
+  return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return h>>>0;};
+}
+function mulberry32(a){
+  return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
+}
+
+/* ---------- Practice generator ---------- */
+const NAMESETS=[["a","b"],["x","y"],["p","q"],["low","high"],["left","right"],["red","blue"],["score","bonus"]];
+const TEMPS=["temp","hold","spare"];
+const WORDS=[["Ana","Ben"],["Mia","Leo"],["cat","dog"],["sun","moon"]];
+function gen(focus,diff,rng){
+  const pick=a=>a[Math.floor(rng()*a.length)];
+  const int=(lo,hi)=>lo+Math.floor(rng()*(hi-lo+1));
+  const two=()=>{const a=int(1,9);let b=int(1,9);while(b===a)b=int(1,9);return[a,b];};
+  const T={
+    copy(){const[x,y]=pick(NAMESETS);const[n1,n2]=two();const L=[x+" ← "+n1,y+" ← "+x,x+" ← "+n2];if(diff>=2)L.push(y+" ← "+y+" + "+int(1,5));if(diff>=3)L.push(x+" ← "+y+" + "+x);return L;},
+    trap(){const[a,b]=pick(NAMESETS);const[n1,n2]=two();const L=[a+" ← "+n1,b+" ← "+n2,a+" ← "+b,b+" ← "+a];if(diff>=3)L.push(a+" ← "+b+" + "+int(1,5));return L;},
+    swapok(){const[a,b]=pick(NAMESETS);const t=pick(TEMPS);const[n1,n2]=two();return[a+" ← "+n1,b+" ← "+n2,t+" ← "+a,a+" ← "+b,b+" ← "+t];},
+    swapbad(){const[a,b]=pick(NAMESETS);const t=pick(TEMPS);const[n1,n2]=two();return[a+" ← "+n1,b+" ← "+n2,a+" ← "+b,t+" ← "+a,b+" ← "+t];},
+    math(){const[a,b]=pick(NAMESETS);const n1=int(2,9),n2=int(1,6);const L=[a+" ← "+n1,b+" ← "+a+" + "+n2,a+" ← "+b+" * 2"];if(diff>=2)L.push(b+" ← "+a+" - "+b);if(diff>=3)L.push(a+" ← "+b+" MOD 3");return L;},
+    text(){const[f,s]=pick([["first","second"],["left","right"],["one","two"]]);const[w1,w2]=pick(WORDS);const L=[f+' ← "'+w1+'"',s+' ← "'+w2+'"',f+" ← "+s,s+" ← "+f];if(diff>=3)L.push(f+" ← "+f+' + "!"');return L;}
+  };
+  let kind=focus;
+  if(focus==="swap")kind=pick(diff>=3?["swapok","swapbad"]:["swapok"]);
+  if(focus==="mixed"){
+    const pool=diff===1?["copy","math"]:(diff===2?["copy","trap","swapok","math","text"]:["trap","swapbad","math","copy","text","swapok"]);
+    kind=pick(pool);
+  }
+  return T[kind]();
+}
+const FOCI=["mixed","copy","trap","swap","math","text"];
+const pr={code:"",stmts:null,names:[],run:null,seen:new Set(),checks:0,firstTryPerfect:0,problems:0,checkedThis:false,tags:{}};
+function randSeed(){return Math.random().toString(36).slice(2,7);}
+function makeCode(f,d,s){return f+"-"+d+"-"+s;}
+function parseCode(c){
+  const p=c.trim().split("-");
+  if(p.length!==3||FOCI.indexOf(p[0])<0||["1","2","3"].indexOf(p[1])<0||!/^[a-z0-9]{1,12}$/i.test(p[2]))return null;
+  return{focus:p[0],diff:+p[1],seed:p[2]};
+}
+function newProblem(code){
+  const cfg=parseCode(code);
+  if(!cfg){alert("That problem code is not valid. Use New problem to make one.");return;}
+  const rng=mulberry32(xmur3(code)());
+  const lines=gen(cfg.focus,cfg.diff,rng);
+  const res=parseProgram(lines.join("\n"));
+  pr.code=code;pr.stmts=res.stmts;pr.names=res.names;pr.run=execute(res.stmts);
+  pr.seen=new Set();pr.checkedThis=false;pr.problems++;
+  $("#focus").value=cfg.focus;$("#diff").value=String(cfg.diff);$("#pcode").value=code;
+  renderPractice();
+}
+function renderPractice(){
+  $("#plines").innerHTML=pr.stmts.map(s=>'<li class="done">'+esc(s.text)+'</li>').join("");
+  let h='<caption class="mono" style="position:absolute;left:-9999px">Trace table</caption><thead><tr><th scope="col">Line</th><th scope="col">Statement</th>'+pr.names.map(n=>'<th scope="col">'+esc(n)+'</th>').join("")+'<th scope="col">Result</th></tr></thead><tbody>';
+  pr.stmts.forEach((s,r)=>{
+    h+='<tr><td>'+(r+1)+'</td><td class="mono">'+esc(s.text)+'</td>'+pr.names.map(n=>'<td><input class="cell" id="c-'+r+'-'+n+'" type="text" autocomplete="off" spellcheck="false" aria-label="Value of '+esc(n)+' after line '+(r+1)+'"></td>').join("")+'<td class="rowstat" id="rs-'+r+'"></td></tr>';
+  });
+  $("#ptable").innerHTML=h+'</tbody>';
+  const fb=$("#fb");fb.hidden=true;fb.className="fb";fb.innerHTML="";
+  updateScore();
+}
+const norm=t=>{t=String(t).trim();if(t.length>1&&t[0]==='"'&&t[t.length-1]==='"')t=t.slice(1,-1);return t;};
+const eq=(txt,v)=>typeof v==="number"?(txt!==""&&!isNaN(Number(txt))&&Math.abs(Number(txt)-v)<1e-6):txt===String(v);
+const same=(txt,v)=>v===undefined?txt==="":eq(txt,v);
+function cellVal(r,n){return norm($("#c-"+r+"-"+n).value);}
+const TAGS={
+  both:"Changed both sides",linked:"Treated cups as linked",other:"Changed another cup",
+  kept:"Kept the old value",stale:"Used an earlier value",slip:"Evaluation slip",blank:"Left a cup blank"
+};
+function diagnose(r){
+  const step=pr.run.steps[r],B=r?pr.run.steps[r-1].after:new Map(),A=step.after,T=step.stmt.target;
+  const S={};pr.names.forEach(n=>S[n]=cellVal(r,n));
+  const rn=r+1;
+  for(const X of pr.names){
+    if(X===T)continue;
+    if(!same(S[X],A.get(X))){
+      if(B.has(T)&&same(S[X],B.get(T))&&!same(plain(B.get(T)),A.get(X)))
+        return{tag:"both",msg:"On line "+rn+", only "+T+" changes, but your table also changed "+X+". Assignment copies the value from the right side into the cup on the left. It does not move or swap anything."};
+      if(same(S[X],A.get(T)))
+        return{tag:"linked",msg:"After line "+rn+", "+X+" should keep the note it already had. Copying a value into "+T+" does not link the two cups, so "+X+" does not follow "+T+"."};
+      return{tag:"other",msg:"Only the cup on the left of the arrow changes. After line "+rn+", "+X+" should keep the note it already had."};
+    }
+  }
+  if(S[T]==="")return{tag:"blank",msg:"After line "+rn+", cup "+T+" should hold a value. Assignment always leaves a note in the cup on the left."};
+  if(B.has(T)&&same(S[T],B.get(T))&&!same(S[T],A.get(T)))
+    return{tag:"kept",msg:"After line "+rn+", "+T+" should hold a new note. Assignment replaces whatever was in the cup, so the old value is thrown away."};
+  const first=new Map();
+  pr.run.steps.forEach(s=>{if(!first.has(s.stmt.target))first.set(s.stmt.target,s.value);});
+  try{const alt=evalNode(step.stmt.ast,first,[]);if(eq(S[T],alt))
+    return{tag:"stale",msg:"That is a value from earlier in the program. A variable holds the most recent value assigned, so use what each cup holds right now."};}catch(e){}
+  const reads=step.reads.map(x=>x.n+" holds "+fmt(B.get(x.n))).join(", ");
+  return{tag:"slip",msg:"Work out the right side first"+(reads?" using what the cups hold right now ("+reads+")":"")+". Then put the result in "+T+"."};
+}
+function updateScore(){
+  const s=$("#score"),t=$("#tally");
+  if(pr.checks===0){s.textContent="No problems checked yet.";}
+  else s.textContent="Problems checked: "+pr.checks+". Perfect on the first check: "+pr.firstTryPerfect+".";
+  const keys=Object.keys(pr.tags);
+  t.innerHTML=keys.length?keys.sort((a,b)=>pr.tags[b]-pr.tags[a]).map(k=>"<li>"+esc(TAGS[k])+": "+pr.tags[k]+"</li>").join(""):"";
+  if(!keys.length&&pr.checks>0)t.innerHTML="<li>No error patterns so far.</li>";
+}
+$("#check").addEventListener("click",()=>{
+  const rows=pr.run.steps;let total=0,good=0,firstBad=-1;
+  rows.forEach((s,r)=>{
+    let rowOk=true;
+    pr.names.forEach(n=>{
+      const inp=$("#c-"+r+"-"+n);
+      const ok=same(norm(inp.value),s.after.get(n));
+      inp.classList.toggle("good",ok);inp.classList.toggle("bad",!ok);
+      inp.setAttribute("aria-invalid",ok?"false":"true");
+      total++;if(ok)good++;else rowOk=false;
+    });
+    $("#rs-"+r).textContent=rowOk?"correct":"check this row";
+    $("#rs-"+r).style.color=rowOk?"var(--good)":"var(--bad)";
+    if(!rowOk&&firstBad<0)firstBad=r;
+  });
+  const first=!pr.checkedThis;
+  if(first){pr.checks++;pr.checkedThis=true;}
+  const fb=$("#fb");fb.hidden=false;
+  const last=rows[rows.length-1];
+  if(firstBad<0){
+    if(first)pr.firstTryPerfect++;
+    const bits=[];last.after.forEach((v,k)=>bits.push(k+" is "+fmt(v)));
+    fb.className="fb ok";
+    fb.innerHTML='<p><strong>Every cell is correct.</strong> Final values: '+esc(bits.join(", "))+'.</p><p>Say out loud why the last line gave that result, then try a new problem.</p>';
+  }else{
+    const d=diagnose(firstBad);
+    if(!pr.seen.has(d.tag)){pr.seen.add(d.tag);pr.tags[d.tag]=(pr.tags[d.tag]||0)+1;}
+    fb.className="fb no";
+    fb.innerHTML='<p><strong>'+good+' of '+total+' cells are correct.</strong> Start with line '+(firstBad+1)+'.</p><p><span class="pill">'+esc(TAGS[d.tag])+'</span></p><p>'+esc(d.msg)+'</p><p>Fix the highlighted cells and press Check again, or watch the program run in the cups.</p>';
+  }
+  updateScore();
+});
+$("#reveal").addEventListener("click",()=>{
+  pr.run.steps.forEach((s,r)=>pr.names.forEach(n=>{
+    const inp=$("#c-"+r+"-"+n);inp.value=plain(s.after.get(n));inp.classList.remove("good","bad");
+  }));
+  const fb=$("#fb");fb.hidden=false;fb.className="fb";
+  fb.innerHTML="<p>Answers are filled in. Trace each row in the cups to see why each cup holds what it does.</p>";
+  pr.checkedThis=true;
+});
+$("#clear").addEventListener("click",()=>{
+  $$(".cell").forEach(i=>{i.value="";i.classList.remove("good","bad");i.removeAttribute("aria-invalid");});
+  pr.run.steps.forEach((s,r)=>{$("#rs-"+r).textContent="";});
+  const fb=$("#fb");fb.hidden=true;
+});
+$("#newp").addEventListener("click",()=>newProblem(makeCode($("#focus").value,$("#diff").value,randSeed())));
+$("#focus").addEventListener("change",()=>newProblem(makeCode($("#focus").value,$("#diff").value,randSeed())));
+$("#diff").addEventListener("change",()=>newProblem(makeCode($("#focus").value,$("#diff").value,randSeed())));
+$("#loadp").addEventListener("click",()=>newProblem($("#pcode").value.trim().toLowerCase()));
+$("#pcode").addEventListener("keydown",e=>{if(e.key==="Enter")newProblem($("#pcode").value.trim().toLowerCase());});
+$("#copyp").addEventListener("click",()=>{
+  const b=$("#copyp");
+  const done=()=>{b.textContent="Copied";setTimeout(()=>{b.textContent="Copy";},1500);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(pr.code).then(done,()=>{$("#pcode").select();});}
+  else{$("#pcode").select();}
+});
+$("#watch").addEventListener("click",()=>{
+  $("#code").value=pr.stmts.map(s=>s.text).join("\n");
+  $("#preset").value="custom";
+  loadExplore();
+  showTab("explore");
+  $("#step").focus();
+});
+
+/* ---------- Tabs ---------- */
+const TABNAMES=["explore","practice","about"];
+function showTab(name){
+  TABNAMES.forEach(n=>{
+    const sel=n===name;
+    const t=$("#tab-"+n);t.setAttribute("aria-selected",sel?"true":"false");t.tabIndex=sel?0:-1;
+    $("#panel-"+n).hidden=!sel;
+  });
+}
+TABNAMES.forEach((n,i)=>{
+  $("#tab-"+n).addEventListener("click",()=>showTab(n));
+  $("#tab-"+n).addEventListener("keydown",e=>{
+    let j=null;
+    if(e.key==="ArrowRight")j=(i+1)%3;
+    if(e.key==="ArrowLeft")j=(i+2)%3;
+    if(e.key==="Home")j=0;
+    if(e.key==="End")j=2;
+    if(j!==null){e.preventDefault();showTab(TABNAMES[j]);$("#tab-"+TABNAMES[j]).focus();}
+  });
+});
+
+/* ---------- init ---------- */
+fillPresets();
+$("#code").value=PRESETS[0].c;
+loadExplore();
+newProblem(makeCode("mixed","2",randSeed()));
+})();
+</script>
+</body>
+</html>
